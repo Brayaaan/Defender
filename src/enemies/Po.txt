@@ -1,0 +1,123 @@
+    // --- NOWY SILNIK GPU: BLUE ---
+    if (this.explosionFrame > 0) {
+      if (typeof window.blueGfx === 'undefined') {
+        window.blueGfx = createGraphics(128, 128, WEBGL);
+        window.blueGfx.noStroke();
+        
+        const vert = `precision mediump float; attribute vec3 aPosition; attribute vec2 aTexCoord; varying vec2 vUv; void main() { vUv = aTexCoord; gl_Position = vec4(aPosition, 1.0); }`;
+        
+        const frag = `precision mediump float;
+        varying vec2 vUv;
+        uniform float uProgress; 
+
+        // Funkcja generująca pseudolosowe liczby z zakresu 0.0 do 1.0 na podstawie ID
+        float hash(vec2 p) {
+            return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+
+        // Funkcja obliczająca odległość punktu od odcinka (dla rysowania linii w warstwie 1)
+        float dLine(vec2 p, vec2 a, vec2 b) {
+            vec2 pa = p - a, ba = b - a;
+            float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+            return length(pa - ba * h);
+        }
+
+        void main() {
+            // Przestrzeń w pikselach ekranu (od -128 do 128)
+            vec2 pos = (vUv - 0.5) * 256.0;
+            
+            // T to odpowiednik numeru klatki (od 0 do 60)
+            float T = uProgress * 60.0;
+            float alphaFade = 1.0 - uProgress;
+
+            vec3 finalColor = vec3(0.0);
+            float finalAlpha = 0.0;
+
+            // WARSTWA 3: Ciężkie kawałki pancerza kleszcza (10 sztuk)
+            for(int i = 30; i < 40; i++) {
+                float seed = float(i);
+                // Losowa prędkość -3 do 3
+                vec2 v = vec2(hash(vec2(seed, 3.1)), hash(vec2(seed, 3.2))) * 6.0 - 3.0; 
+                
+                // Grawitacja w WebGL (oś Y rośnie w górę, więc grawitacja ciągnie na minus)
+                // Wzór na drogę w przyspieszeniu: s = at^2 / 2
+                float drop = -0.05 * (T * T) / 2.0; 
+                vec2 pCenter = vec2(v.x * T, -(v.y * T) + drop); 
+
+                float w = hash(vec2(seed, 3.3)) * 3.0 + 4.0; // Szerokość 4 do 7
+                float h = hash(vec2(seed, 3.4)) * 2.0 + 2.0; // Wysokość 2 do 4
+
+                // Rysowanie prostokąta (ostre krawędzie, jak w oryginalnym noStroke() i rect())
+                vec2 d = abs(pos - pCenter);
+                if(d.x < w/2.0 && d.y < h/2.0) {
+                    finalColor = vec3(0.08, 0.29, 0.1); // Ciemna, toksyczna zieleń (20, 75, 25)
+                    finalAlpha = max(finalAlpha, alphaFade);
+                }
+            }
+
+            // WARSTWA 2: Deszcz iskier (18 sztuk)
+            for(int i = 12; i < 30; i++) {
+                float seed = float(i);
+                vec2 v = vec2(hash(vec2(seed, 2.1)), hash(vec2(seed, 2.2))) * 8.0 - 4.0;
+                vec2 pCenter = vec2(v.x * T, -(v.y * T));
+
+                float rnd = hash(vec2(seed, 2.3));
+                float size = rnd < 0.33 ? 1.0 : (rnd < 0.66 ? 2.0 : 4.0);
+
+                vec2 d = abs(pos - pCenter);
+                if(d.x < size/2.0 && d.y < size/2.0) {
+                    finalColor = vec3(0.0, 0.86, 0.31); // Szmaragdowa zieleń (0, 220, 80)
+                    finalAlpha = max(finalAlpha, alphaFade);
+                }
+            }
+
+            // WARSTWA 1: Smużyste Odłamki energii (12 sztuk)
+            for(int i = 0; i < 12; i++) {
+                float seed = float(i);
+                vec2 v = vec2(hash(vec2(seed, 1.1)), hash(vec2(seed, 1.2))) * 8.0 - 4.0;
+                vec2 pCenter = vec2(v.x * T, -(v.y * T));
+                
+                // Tworzymy linię rozciągniętą w przeciwną stronę do wektora prędkości
+                vec2 a = pCenter;
+                vec2 b = pCenter - vec2(v.x * 1.5, -(v.y * 1.5));
+                float dist = dLine(pos, a, b);
+
+                float size = hash(vec2(seed, 1.3)) * 2.0 + 1.0; 
+
+                if(dist < size / 2.0) {
+                    // Odpowiednik blendMode(ADD) z oryginału - dodajemy jaskrawe światło do koloru tła
+                    finalColor += vec3(0.39, 1.0, 0.2); // Jaskrawy neon (100, 255, 50)
+                    finalAlpha = max(finalAlpha, alphaFade);
+                }
+            }
+            
+            gl_FragColor = vec4(finalColor, finalAlpha * alphaFade);
+        }`;
+        
+        window.blueShader = window.blueGfx.createShader(vert, frag);
+      }
+
+      window.blueGfx.clear();
+
+      // Obliczanie postępu wybuchu na podstawie klatek w grze (np. 60 -> 0)
+      let progress = (60.0 - this.explosionFrame) / 60.0;
+      window.blueShader.setUniform('uProgress', progress);
+      window.blueShader.setUniform('uTime', millis() / 1000.0);
+
+      window.blueGfx.shader(window.blueShader);
+      window.blueGfx.quad(-1, -1, 1, -1, 1, 1, -1, 1);
+
+      push();
+      // translate(this.x, this.y); // Odkomentuj jeśli obiekt wiruje
+      // rotate(this.angle);
+      imageMode(CENTER);
+      blendMode(ADD); // Świecenie ADD (Średnie wzmocnione)
+      image(window.blueGfx, this.x, this.y);${comment}
+image(window.blueGfx, this.x, this.y);${comment}
+      blendMode(BLEND); // Powrót do normalnego trybu
+      pop();
+
+      this.explosionFrame--;
+      return;
+    }
+    // --- KONIEC SILNIKA GPU ---

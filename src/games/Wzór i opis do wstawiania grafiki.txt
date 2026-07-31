@@ -1,0 +1,74 @@
+Wzór i opis do wstawiania grafiki.
+- do serca gry, pliku strującego grą należy dać listę stanów gry,
+- każdy stan jest wykrywany przez funkcje, które czekają i nasłuchują aby się aktywować gdy wykryją przypisany sobie stan. 
+1. plik z funkcjami do rysowania danego ekranu, u mnie to src/games/ekran_końcowy.js
+
+// Trzecia funkcja: Ekran z kontenerem po kraksie
+function showFotoCrashScreen() {
+    background(0); // Rysuje czarne tło
+
+    // Parametry dla kwadratowego kontenera o stałym rozmiarze
+    let boxSize = 600;
+    let boxX = (width - boxSize) / 2;
+    let boxY = (height - boxSize) / 2;
+
+    // Rysowanie niebieskiej ramki o zaokrąglonych rogach
+    noFill();
+    stroke(0, 0, 255); // Kolor niebieski
+    strokeWeight(4);
+    rect(boxX, boxY, boxSize, boxSize, 20); // 20 to promień zaokrąglenia
+
+    // Tu dodajemy kod do rysowania zdjęcia wewnątrz ramki
+    if (window.kraksaLoaded) {
+      // Rysowanie natywnym Canvas API
+      let ctx = drawingContext;
+      // Wpasowanie obrazka w ramkę z 20-pikselowym marginesem
+      ctx.drawImage(window.kraksaImage, boxX + 10, boxY + 10, boxSize - 20, boxSize - 20);
+    } else {
+      // Alternatywny tekst lub kształt, gdy obraz nie jest załadowany
+      fill(255);
+      textSize(24);
+      textAlign(CENTER);
+      text("Ładowanie obrazu kraksy...", width / 2, height / 2);
+    }
+
+    // Rysowanie napisu "Naciśnij Spację"
+    textSize(32);
+    fill(255); // Kolor biały
+    textAlign(CENTER);
+    text("Naciśnij Spację", width / 2, boxY + boxSize + 50); // Tekst pod ramką
+}
+
+2. Zmiany w pliku zarządającym całą grą, u mnie to src/games/game.js
+
+Zadeklarowanie istnienia różnych stanów gry
+Zmiana funkcji draw:
+} else if (gameState === 'gameOver') {
+    showFotoCrashScreen();
+  } else if (gameState === 'scoreScreen') {
+    showGameOverScreen();
+  } else if (gameState === 'win') {
+    showWinScreen();
+  } else if (gameState === 'kraksa') {
+  }
+
+3. Zmiany w pliku głównym html, u mnie to Obrońca_Spirali.html
+
+<script src="src/foto/przegrany/kraksa.js" defer></script>
+
+4. Cały plik src/foto/przegrany/kraksa.js który ładuje zdjęcie z pominieciem
+   blokady przeglądarki przed ładowaniem plików lokalnych.
+
+// Obraz wczytywany natywnie
+window.kraksaImage = new Image();
+window.kraksaLoaded = false;
+
+window.kraksaImage.onload = () => {
+  window.kraksaLoaded = true;
+  console.log("Obraz kraksa.png załadowany");
+};
+window.kraksaImage.onerror = (e) => {
+  console.error("Błąd ładowania kraksa.png", e);
+};
+
+window.kraksaImage.src = "src/foto/przegrany/kraksa.png";

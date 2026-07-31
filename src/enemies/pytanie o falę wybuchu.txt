@@ -1,0 +1,1 @@
+Po wybuchu fala uderzeniowa się rozchodzi ale ogranicza ją kwadratowy kształt płótna. Widać że ona rozchodzi się w kwadratowym kształcie. Czy jak zwiększę szader to jest możliwość, że rozchodzący wybuch, jego fala, nie doleci do obrzeży kwadratu?

@@ -1,0 +1,5 @@
+
+Zmienić start explosion ()
+
+prompt do poprawy niebieskich kulek
+zamieniłem tylko startExplosion(), ponieważ w update(bulletsArray) i  w show, zapomniałeś uwzględnić moich wstawek dotyczących "porwania astronauty". Pokaż proszę najpierw poprawną nową metodę 

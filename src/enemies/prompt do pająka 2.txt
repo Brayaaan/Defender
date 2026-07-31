@@ -1,0 +1,5 @@
+Za dużo zmian a efektów nie ma.
+Zabieramy się jeszcze raz za pająka2.
+W załączonym pliku mamy już iskry sypiące się po trafieniu pociskami w pająka.
+To jest gotowe. Musimy pozbyć się globalnej funkcji eksplozji całkowicie.
+to niepotrzebny artefakt.

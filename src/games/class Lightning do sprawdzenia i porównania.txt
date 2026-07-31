@@ -1,0 +1,211 @@
+1. Nowa klasa, która działa ale pocisk jest niewidoczny:
+class Lightning {
+  constructor(x, y, damage, angle = 0, speed) {
+    this.x = x;
+    this.y = y;
+    this.vx = speed * cos(angle);
+    this.vy = speed * sin(angle);
+    this.damage = damage;
+    this.length = 60;
+    this.width = 20;
+    this.height = this.length; // dla kolizji
+    this.frame = 0;
+  }
+
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.frame++;
+  }
+
+// Początek shadera pioruna
+  static initShaders(pg) {
+    if (Lightning.shadersLoaded) return;
+    const frag = `precision mediump float;
+      varying vec2 vUv;
+      uniform float uTime;
+      
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+      float noise(vec2 p) {
+        vec2 i = floor(p); vec2 f = fract(p);
+        vec2 u = f*f*(3.0-2.0*f);
+        return mix(mix(hash(i+vec2(0.0,0.0)), hash(i+vec2(1.0,0.0)), u.x),
+                   mix(hash(i+vec2(0.0,1.0)), hash(i+vec2(1.0,1.0)), u.x), u.y);
+      }
+      
+      float fbm(vec2 p) {
+        float f = 0.0; float a = 0.5;
+        for(int i = 0; i < 4; i++) { f += a * noise(p); p *= 2.0; a *= 0.5; }
+        return f;
+      }
+
+      void main() {
+        vec2 uv = vUv;
+        uv.y = (uv.y - 0.5) * 2.0; 
+        
+        float scrollTime = uTime * 6.0;
+        float n1 = fbm(vec2(uv.x * 6.0 - scrollTime, uv.y * 2.0));
+        float n2 = fbm(vec2(uv.x * 12.0 - scrollTime * 1.5, uv.y * 4.0 - uTime));
+        
+        float distortion = (n1 - 0.5) * 0.4;
+        float distY = abs(uv.y + distortion);
+        
+        float core = smoothstep(0.15, 0.0, distY);
+        float plasma = smoothstep(0.6, 0.0, distY) * n2;
+        
+        float pulse = sin(uv.x * 30.0 - scrollTime * 2.0) * 0.5 + 0.5;
+        plasma += pulse * 0.3 * smoothstep(0.3, 0.0, distY);
+        
+        float edgeFade = smoothstep(1.0, 0.8, abs(uv.y));
+        float lengthFade = smoothstep(0.0, 0.15, uv.x) * smoothstep(1.0, 0.85, uv.x);
+        
+        float intensity = (core + plasma) * edgeFade * lengthFade;
+        
+        vec3 colMagenta = vec3(1.0, 0.2, 0.8);
+        vec3 colCyan = vec3(0.0, 1.0, 0.9);
+        vec3 colCore = vec3(1.0, 1.0, 1.0);
+        
+        vec3 finalColor = mix(colMagenta, colCyan, plasma);
+        finalColor = mix(finalColor, colCore, core * 0.8);
+        
+        gl_FragColor = vec4(finalColor * intensity * 2.5, intensity);
+      }`;
+    Lightning.shader = pg.createShader(FIRE_SHARED_VERT_SRC, frag);
+    Lightning.shadersLoaded = true;
+  }
+
+  show(pg) {
+    Lightning.initShaders(pg);
+
+    pg.push();
+    pg.translate(this.x, this.y, 0);
+    pg.rotate(this.angle);
+    pg.noStroke();
+    pg.blendMode(ADD);
+    pg.translate(this.length / 2, 0, 0);
+    pg.shader(Lightning.shader);
+    Lightning.shader.setUniform('uTime', millis() / 1000.0);
+    pg.plane(this.length * 1.5, this.width * 1.5);
+    pg.resetShader();
+    pg.blendMode(BLEND);
+    pg.pop();
+  }
+// koniec shadera pocisku piorun
+
+  hits(enemy) {
+    return rectCircleCollision(this.x, this.y, this.width, this.length, enemy.x, enemy.y, enemy.radius);
+  }
+}
+
+2. Stara klasa, która działała i pocisk był niewidoczny:
+
+class Lightning {
+  constructor(x, y, damage, angle = 0, speed) {
+    this.x = x;
+    this.y = y;
+    this.vx = speed * cos(angle);
+    this.vy = speed * sin(angle);
+    this.damage = damage;
+    this.length = 60;
+    this.width = 20;
+    this.height = this.length; // dla kolizji
+    this.frame = 0;
+  }
+
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.frame++;
+  }
+
+// Początek shadera pioruna
+  show() {
+    if (typeof window.lightningGfx === 'undefined') {
+      // Płótno o mniejszych proporcjach, by renderować pocisk, a nie wiązkę na cały ekran
+      window.lightningGfx = createGraphics(120, 40, WEBGL);
+      window.lightningGfx.noStroke();
+      
+      const vert = `precision mediump float; attribute vec3 aPosition; attribute vec2 aTexCoord; varying vec2 vUv; void main() { vUv = aTexCoord; gl_Position = vec4(aPosition, 1.0); }`;
+      
+      const frag = `precision mediump float;
+      varying vec2 vUv;
+      uniform float uTime;
+      
+      // Funkcje generujące szum (z shadera Martiarki)
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+      float noise(vec2 p) {
+        vec2 i = floor(p); vec2 f = fract(p);
+        vec2 u = f*f*(3.0-2.0*f);
+        return mix(mix(hash(i+vec2(0.0,0.0)), hash(i+vec2(1.0,0.0)), u.x),
+                   mix(hash(i+vec2(0.0,1.0)), hash(i+vec2(1.0,1.0)), u.x), u.y);
+      }
+      
+      float fbm(vec2 p) {
+        float f = 0.0; float a = 0.5;
+        for(int i = 0; i < 4; i++) { f += a * noise(p); p *= 2.0; a *= 0.5; }
+        return f;
+      }
+
+      void main() {
+        vec2 uv = vUv;
+        uv.y = (uv.y - 0.5) * 2.0; 
+        
+        // Zmiana przepływu na prawo (odejmowanie scrollTime)
+        float scrollTime = uTime * 6.0;
+        float n1 = fbm(vec2(uv.x * 6.0 - scrollTime, uv.y * 2.0));
+        float n2 = fbm(vec2(uv.x * 12.0 - scrollTime * 1.5, uv.y * 4.0 - uTime));
+        
+        float distortion = (n1 - 0.5) * 0.4;
+        float distY = abs(uv.y + distortion);
+        
+        float core = smoothstep(0.15, 0.0, distY);
+        float plasma = smoothstep(0.6, 0.0, distY) * n2;
+        
+        float pulse = sin(uv.x * 30.0 - scrollTime * 2.0) * 0.5 + 0.5;
+        plasma += pulse * 0.3 * smoothstep(0.3, 0.0, distY);
+        
+        float edgeFade = smoothstep(1.0, 0.8, abs(uv.y));
+        
+        // Ściemnianie na początku i na końcu, żeby był to samodzielny pocisk
+        float lengthFade = smoothstep(0.0, 0.15, uv.x) * smoothstep(1.0, 0.85, uv.x);
+        
+        float intensity = (core + plasma) * edgeFade * lengthFade;
+        
+        // Zostawiona oryginalna kolorystyka
+        vec3 colMagenta = vec3(1.0, 0.2, 0.8);
+        vec3 colCyan = vec3(0.0, 1.0, 0.9);
+        vec3 colCore = vec3(1.0, 1.0, 1.0);
+        
+        vec3 finalColor = mix(colMagenta, colCyan, plasma);
+        finalColor = mix(finalColor, colCore, core * 0.8);
+        
+        gl_FragColor = vec4(finalColor * intensity * 2.5, intensity);
+      }`;
+      
+      window.lightningShader = window.lightningGfx.createShader(vert, frag);
+      window.lastLightningUpdateFrame = -1;
+    }
+    
+    // Optymalizacja – jedno odświeżenie bufora na klatkę, nawet przy wielu pociskach
+    if (window.lastLightningUpdateFrame !== frameCount) {
+      window.lightningGfx.clear();
+      window.lightningShader.setUniform('uTime', millis() / 1000.0);
+      window.lightningGfx.shader(window.lightningShader);
+      window.lightningGfx.quad(-1, -1, 1, -1, 1, 1, -1, 1);
+      window.lastLightningUpdateFrame = frameCount;
+    }
+    
+    push();
+    translate(this.x, this.y);
+    rotate(this.angle);
+    blendMode(ADD);
+    imageMode(CENTER);
+    image(window.lightningGfx, this.length / 2, 0, this.length * 1.5, this.width * 1.5);
+    pop();
+  }
+// koniec shadera pocisku piorun
+
+  hits(enemy) {
+    return rectCircleCollision(this.x, this.y, this.width, this.length, enemy.x, enemy.y, enemy.radius);
+  }
+}
